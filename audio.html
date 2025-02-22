@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice to Sign Language Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #121212;
+            color: white;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .btn {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #28a745;
+            color: white;
+            font-size: 16px;
+        }
+        .sign-output {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            font-size: 50px;
+            gap: 10px;
+        }
+        .letter {
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice to Sign Language Translator</h1>
+        <button class="btn" onclick="startListening()">Start Speaking</button>
+        <p id="recognized-text">Say something...</p>
+        <div class="sign-output" id="sign-output"></div>
+    </div>
+    
+    <script>
+        const signLanguageEmoji = {
+            a: "🤟", b: "🫵", c: "🤲", d: "☝️", e: "✋",
+            f: "👌", g: "🖖", h: "🤞", i: "☝", j: "✌️",
+            k: "🤞", l: "👍", m: "🖐️", n: "🤘", o: "👌",
+            p: "👆", q: "👇", r: "🤙", s: "✊", t: "👊",
+            u: "🤞", v: "✌️", w: "👐", x: "🤘", y: "🤙",
+            z: "✋", " ": " "
+        };
+
+        let recognition = null;
+
+        function startListening() {
+            // Check if we're in a secure context
+            if (!window.isSecureContext) {
+                document.getElementById("recognized-text").innerText = 
+                    "Speech recognition requires HTTPS. Please host this page on a secure server.";
+                return;
+            }
+
+            // Check internet connection
+            if (!navigator.onLine) {
+                document.getElementById("recognized-text").innerText = 
+                    "Please check your internet connection and try again.";
+                return;
+            }
+
+            // Stop any existing recognition
+            if (recognition) {
+                recognition.stop();
+            }
+
+            // Check for browser support
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                document.getElementById("recognized-text").innerText = 
+                    "Sorry, your browser doesn't support speech recognition. Please try Chrome or Edge.";
+                return;
+            }
+
+            try {
+                recognition = new SpeechRecognition();
+                
+                // Configure recognition
+                recognition.lang = 'en-US';
+                recognition.continuous = false;
+                recognition.interimResults = true;
+
+                recognition.onstart = () => {
+                    document.getElementById("recognized-text").innerText = "Listening... Speak now!";
+                    document.querySelector('.btn').textContent = 'Stop Speaking';
+                    document.querySelector('.btn').onclick = stopListening;
+                };
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    document.getElementById("recognized-text").innerText = `You said: ${transcript}`;
+                    displaySignLanguage(transcript);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    let errorMessage = "";
+                    
+                    switch(event.error) {
+                        case 'network':
+                            errorMessage = "Network error. Please check your internet connection and try again.";
+                            break;
+                        case 'not-allowed':
+                        case 'permission-denied':
+                            errorMessage = "Microphone access denied. Please allow microphone access and try again.";
+                            break;
+                        case 'no-speech':
+                            errorMessage = "No speech detected. Please try again.";
+                            break;
+                        case 'audio-capture':
+                            errorMessage = "No microphone detected. Please check your microphone and try again.";
+                            break;
+                        case 'aborted':
+                            errorMessage = "Recognition was aborted.";
+                            break;
+                        default:
+                            errorMessage = "An error occurred. Please try again.";
+                    }
+                    
+                    document.getElementById("recognized-text").innerText = errorMessage;
+                    resetButton();
+                };
+
+                recognition.onend = () => {
+                    resetButton();
+                };
+
+                // Start recognition
+                recognition.start();
+                
+            } catch (error) {
+                console.error('Speech recognition error:', error);
+                document.getElementById("recognized-text").innerText = 
+                    "Failed to start speech recognition. Please make sure you're using HTTPS and have granted microphone permissions.";
+                resetButton();
+            }
+        }
+
+        function stopListening() {
+            if (recognition) {
+                recognition.stop();
+                document.getElementById("recognized-text").innerText = "Recognition stopped.";
+                resetButton();
+            }
+        }
+
+        function resetButton() {
+            const btn = document.querySelector('.btn');
+            btn.textContent = 'Start Speaking';
+            btn.onclick = startListening;
+        }
+
+        function displaySignLanguage(text) {
+            const signOutput = document.getElementById("sign-output");
+            signOutput.innerHTML = "";
+            const words = text.toLowerCase().split(" ");
+            let delay = 0;
+
+            words.forEach(word => {
+                const wordContainer = document.createElement("div");
+                wordContainer.style.display = "flex";
+                wordContainer.style.gap = "10px";
+                wordContainer.style.margin = "0 10px";
+
+                [...word].forEach(letter => {
+                    const span = document.createElement("span");
+                    span.innerText = signLanguageEmoji[letter] || letter;
+                    span.className = "letter";
+                    span.style.animationDelay = `${delay}s`;
+                    delay += 0.1;
+                    wordContainer.appendChild(span);
+                });
+
+                signOutput.appendChild(wordContainer);
+                delay += 0.2;
+            });
+        }
+
+        // Add event listeners for online/offline status
+        window.addEventListener('online', () => {
+            document.getElementById("recognized-text").innerText = 
+                "Internet connection restored. Click 'Start Speaking' to begin.";
+        });
+
+        window.addEventListener('offline', () => {
+            document.getElementById("recognized-text").innerText = 
+                "Internet connection lost. Please check your connection.";
+            if (recognition) {
+                recognition.stop();
+            }
+            resetButton();
+        });
+    </script>
+</body>
+</html>
+
